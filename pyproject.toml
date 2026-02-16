@@ -1,0 +1,15 @@
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "elara-runtime"
+version = "0.1.0"
+description = "Elara Protocol Layer 1.5 — Rust DAM Virtual Machine"
+requires-python = ">=3.10"
+license = { text = "MIT OR Apache-2.0" }
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+python-source = "python"
+module-name = "elara_runtime._native"

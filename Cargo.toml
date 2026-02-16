@@ -1,0 +1,58 @@
+[package]
+name = "elara-runtime"
+version = "0.1.0"
+edition = "2021"
+description = "Elara Protocol Layer 1.5 — Rust DAM Virtual Machine with PyO3 bindings"
+license = "MIT OR Apache-2.0"
+
+[lib]
+name = "elara_runtime"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# Python bindings
+pyo3 = { version = "0.23", features = ["extension-module"] }
+
+# Post-quantum crypto (wraps liboqs C library)
+oqs = { version = "0.11", features = ["vendored", "dilithium", "sphincs", "serde"] }
+
+# Hashing
+sha3 = "0.10"
+
+# Parallelism
+rayon = "1.10"
+
+# Error handling
+thiserror = "2.0"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Encoding
+hex = "0.4"
+
+# UUIDs
+uuid = { version = "1.0", features = ["v7"] }
+
+# Memory-mapped files (Phase 2)
+memmap2 = "0.9"
+
+# SQLite (Phase 2)
+rusqlite = { version = "0.32", features = ["bundled"] }
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+tempfile = "3"
+
+[[bench]]
+name = "bench_crypto"
+harness = false
+
+[[bench]]
+name = "bench_wire"
+harness = false
+
+[[bench]]
+name = "bench_dag"
+harness = false
