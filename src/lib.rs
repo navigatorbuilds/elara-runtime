@@ -135,6 +135,29 @@ fn py_signable_bytes<'py>(py: Python<'py>, record_dict: &Bound<'py, PyDict>) -> 
 
 // ─── Helper conversions ───────────────────────────────────────────────────
 
+/// Convert a Python value to serde_json::Value, preserving types.
+fn python_to_json_value(obj: &Bound<'_, PyAny>) -> PyResult<serde_json::Value> {
+    if obj.is_none() {
+        return Ok(serde_json::Value::Null);
+    }
+    // Try bool BEFORE int — Python bool is a subclass of int
+    if let Ok(b) = obj.extract::<bool>() {
+        return Ok(serde_json::Value::Bool(b));
+    }
+    if let Ok(i) = obj.extract::<i64>() {
+        return Ok(serde_json::json!(i));
+    }
+    if let Ok(f) = obj.extract::<f64>() {
+        return Ok(serde_json::json!(f));
+    }
+    if let Ok(s) = obj.extract::<String>() {
+        return Ok(serde_json::Value::String(s));
+    }
+    // Fallback: stringify
+    let s: String = obj.str()?.to_string();
+    Ok(serde_json::Value::String(s))
+}
+
 fn dict_to_record(dict: &Bound<'_, PyDict>) -> PyResult<record::ValidationRecord> {
     let id: String = dict
         .get_item("id")?
@@ -173,20 +196,17 @@ fn dict_to_record(dict: &Bound<'_, PyDict>) -> PyResult<record::ValidationRecord
     let classification = record::Classification::from_u8(classification_val)?;
 
     // Metadata: convert Python dict to BTreeMap<String, serde_json::Value>
+    // Preserves types: int→Number, float→Number, bool→Bool, None→Null, str→String
     let metadata: BTreeMap<String, serde_json::Value> =
         if let Some(meta_obj) = dict.get_item("metadata")? {
-            let meta_str: String = meta_obj.repr()?.to_string();
-            // Use JSON for the conversion — Python dict -> JSON string -> BTreeMap
             if let Ok(meta_dict) = meta_obj.downcast::<PyDict>() {
                 let mut map = BTreeMap::new();
                 for (k, v) in meta_dict.iter() {
                     let key: String = k.extract()?;
-                    let val_str: String = v.str()?.to_string();
-                    map.insert(key, serde_json::Value::String(val_str));
+                    let val = python_to_json_value(&v)?;
+                    map.insert(key, val);
                 }
                 map
-            } else if meta_str == "{}" {
-                BTreeMap::new()
             } else {
                 BTreeMap::new()
             }
@@ -242,11 +262,21 @@ fn record_to_dict(py: Python, rec: &record::ValidationRecord) -> PyResult<PyObje
 
     let meta_dict = PyDict::new(py);
     for (k, v) in &rec.metadata {
-        let val_str = match v {
-            serde_json::Value::String(s) => s.clone(),
-            other => other.to_string(),
-        };
-        meta_dict.set_item(k, val_str)?;
+        match v {
+            serde_json::Value::Null => meta_dict.set_item(k, py.None())?,
+            serde_json::Value::Bool(b) => meta_dict.set_item(k, *b)?,
+            serde_json::Value::Number(n) => {
+                if let Some(i) = n.as_i64() {
+                    meta_dict.set_item(k, i)?;
+                } else if let Some(f) = n.as_f64() {
+                    meta_dict.set_item(k, f)?;
+                } else {
+                    meta_dict.set_item(k, n.to_string())?;
+                }
+            }
+            serde_json::Value::String(s) => meta_dict.set_item(k, s)?,
+            other => meta_dict.set_item(k, other.to_string())?,
+        }
     }
     dict.set_item("metadata", meta_dict)?;
 
