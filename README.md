@@ -34,7 +34,7 @@ maturin develop --release
 
 # Run tests
 cargo test                              # 72 Rust tests
-python -m pytest tests/test_compat.py   # 21 cross-language tests
+python -m pytest tests/                 # 28 cross-language tests
 ```
 
 ## Architecture
@@ -58,7 +58,8 @@ src/
 └── lib.rs           # PyO3 module (13 exported functions)
 
 tests/
-└── test_compat.py   # Cross-language sign/verify + wire format tests
+├── test_compat.py       # Cross-language sign/verify + wire format tests (21)
+└── test_wire_interop.py # Wire interop: round-trip, stress, type preservation (7)
 
 benches/
 ├── bench_crypto.rs  # PQC + hashing benchmarks
@@ -66,7 +67,7 @@ benches/
 └── bench_dag.rs     # DAG traversal benchmarks
 ```
 
-**72 Rust tests + 21 Python cross-language tests, all passing.**
+**72 Rust tests + 28 Python cross-language tests, all passing.**
 
 ## Benchmarks
 
